@@ -48,7 +48,14 @@ button.p{background:var(--accent);border-color:var(--accent);color:#fff}
 <script>
 var days=[];for(var i=1;i<=30;i++)days.push("Day "+i);
 var rows=document.getElementById("rows");
-function mins(v){if(!v)return null;var p=v.split(":");return +p[0]*60+ +p[1];}
+function mins(v){
+  if(!v)return null;
+  var p=v.split(":");
+  if(p.length<2)return null;
+  var h=parseInt(p[0],10),m=parseInt(p[1],10);
+  if(isNaN(h)||isNaN(m))return null;
+  return h*60+m;
+}
 function fmt(m){var h=Math.floor(m/60),r=Math.round(m%60);return h+":"+String(r).padStart(2,"0");}
 function addRow(label,st,en){
   var tr=document.createElement("tr");
