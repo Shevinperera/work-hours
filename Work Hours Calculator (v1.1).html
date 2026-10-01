@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Work Hours Calculator</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--text:#1c2430;--muted:#667085;--line:#dfe3ea;--accent:#2563eb;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12151b;--card:#1c212b;--text:#e7eaf0;--muted:#98a2b3;--line:#2f3644;--accent:#6a9bff}}
+:root[data-theme="dark"]{--bg:#12151b;--card:#1c212b;--text:#e7eaf0;--muted:#98a2b3;--line:#2f3644;--accent:#6a9bff}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:640px;margin:0 auto;padding:20px 14px}
+h1{font-size:1.4rem;margin:0 0 14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:400px}
+th{font-size:.75rem;text-transform:uppercase;color:var(--muted);text-align:left;padding:4px 6px}
+td{padding:4px 6px}
+input{width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);font:inherit}
+.hrs{font-weight:600;white-space:nowrap}
+button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:8px;padding:8px 12px;cursor:pointer}
+button.p{background:var(--accent);border-color:var(--accent);color:#fff}
+.x{padding:6px 9px;color:var(--muted)}
+.bar{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.total{margin-top:14px;padding:14px;border-radius:12px;background:var(--card);border:1px solid var(--line);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.total b{font-size:1.4rem;color:var(--accent)}
+.total small{display:block;color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+<h1>Work Hours Calculator</h1>
+<div class="card">
+<table>
+<thead><tr><th>Day</th><th>Start</th><th>End</th><th>Hours</th><th></th></tr></thead>
+<tbody id="rows"></tbody>
+</table>
+<div class="bar"><button id="add">+ Add row</button><button id="clear">Clear</button><button id="imp" class="p">Import Excel / CSV</button><input type="file" id="file" accept=".xlsx,.xls,.csv" hidden></div>
+</div>
+<div class="total">
+<div><small>Total time</small><b id="tHM">0:00</b></div>
+<div><small>Decimal hours</small><b id="tDec">0.00</b></div>
+</div>
+<p style="color:var(--muted);font-size:.85rem">Overnight shifts work: if end is earlier than start, it counts as the next day.</p>
+<p style="color:var(--muted);font-size:.85rem">Import: first sheet, with a header row containing columns like Date, In, Out (or Start, End). Times can be Excel times or text like 9:00 or 5:30 PM.</p>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+var days=[];for(var i=1;i<=30;i++)days.push("Day "+i);
+var rows=document.getElementById("rows");
+function mins(v){if(!v)return null;var p=v.split(":");return +p[0]*60+ +p[1];}
+function fmt(m){var h=Math.floor(m/60),r=Math.round(m%60);return h+":"+String(r).padStart(2,"0");}
+function addRow(label,st,en){
+  var tr=document.createElement("tr");
+  tr.innerHTML='<td><input class="d" value="'+(label||"")+'" aria-label="Day"></td>'+
+  '<td><input type="time" class="s"></td><td><input type="time" class="e"></td>'+
+  '<td class="hrs">0:00</td><td><button class="x" title="Remove">✕</button></td>';
+  tr.addEventListener("input",calc);
+  tr.querySelector(".x").onclick=function(){tr.remove();calc();};
+  if(st)tr.querySelector(".s").value=st;
+  if(en)tr.querySelector(".e").value=en;
+  rows.appendChild(tr);
+}
+function calc(){
+  var total=0;
+  rows.querySelectorAll("tr").forEach(function(tr){
+    var s=mins(tr.querySelector(".s").value),e=mins(tr.querySelector(".e").value);
+    var m=0;
+    if(s!==null&&e!==null){m=e-s;if(m<0)m+=1440;}
+    tr.querySelector(".hrs").textContent=fmt(m);
+    total+=m;
+  });
+  document.getElementById("tHM").textContent=fmt(total);
+  document.getElementById("tDec").textContent=(total/60).toFixed(2);
+}
+document.getElementById("add").onclick=function(){addRow("");};
+document.getElementById("clear").onclick=function(){rows.innerHTML="";days.forEach(function(x){addRow(x);});calc();};
+
+function toTime(v){
+  if(v===undefined||v===null||v==="")return "";
+  if(typeof v==="number"){var m=Math.round((v%1)*1440)%1440;return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");}
+  var x=String(v).match(/(\d{1,2}):(\d{2})\s*(am|pm)?/i);if(!x)return "";
+  var h=+x[1];if(x[3]){var pm=x[3].toLowerCase()==="pm";if(pm&&h<12)h+=12;if(!pm&&h===12)h=0;}
+  return String(h).padStart(2,"0")+":"+x[2];
+}
+function toLabel(v){
+  if(typeof v==="number"&&v>25569)return new Date(Math.round((v-25569)*864e5)).toISOString().slice(0,10);
+  return v===undefined?"":String(v);
+}
+function importFile(f){
+  var r=new FileReader();
+  r.onload=function(ev){
+    try{
+      var wb=XLSX.read(new Uint8Array(ev.target.result),{type:"array"});
+      var data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true});
+      var hi=-1,ci=1,co=2,cd=0;
+      for(var i=0;i<Math.min(data.length,10);i++){
+        var row=(data[i]||[]).map(function(c){return String(c||"").toLowerCase();});
+        var a=row.findIndex(function(c){return /\b(in|start|clock in|time in)\b/.test(c);});
+        var b=row.findIndex(function(c){return /\b(out|end|finish|clock out|time out)\b/.test(c);});
+        if(a>-1&&b>-1){hi=i;ci=a;co=b;cd=row.findIndex(function(c){return /date|day/.test(c);});if(cd<0)cd=a>0?0:-1;break;}
+      }
+      rows.innerHTML="";
+      var n=0;
+      for(var j=hi+1;j<data.length;j++){
+        var d=data[j]||[],st=toTime(d[ci]),en=toTime(d[co]);
+        if(!st&&!en)continue;
+        addRow(cd>=0?toLabel(d[cd]):"Row "+(n+1),st,en);n++;
+      }
+      if(!n){alert("No start/end times found. Use columns like Date, In, Out.");days.forEach(function(x){addRow(x);});}
+      calc();
+    }catch(err){alert("Could not read that file.");}
+  };
+  r.readAsArrayBuffer(f);
+}
+document.getElementById("imp").onclick=function(){document.getElementById("file").click();};
+document.getElementById("file").onchange=function(e){if(e.target.files[0])importFile(e.target.files[0]);e.target.value="";};
+days.forEach(function(x){addRow(x);});calc();
+</script>
+</body>
+</html>
