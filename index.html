@@ -38,8 +38,9 @@ button.p{background:var(--accent);border-color:var(--accent);color:#fff}
 <div class="bar"><button id="add">+ Add row</button><button id="clear">Clear</button><button id="imp" class="p">Import Excel / CSV</button><input type="file" id="file" accept=".xlsx,.xls,.csv" hidden></div>
 </div>
 <div class="total">
-<div><small>Total time</small><b id="tHM">0:00</b></div>
-<div><small>Decimal hours</small><b id="tDec">0.00</b></div>
+<div><small>Total time</small><b id="tHM">0:00 hours</b></div>
+<div><small>Decimal hours</small><b id="tDec">0.00 hours</b></div>
+<div><small>Overtime</small><b id="tOT">0:00 hours</b></div>
 </div>
 <p style="color:var(--muted);font-size:.85rem">Overnight shifts work: if end is earlier than start, it counts as the next day.</p>
 <p style="color:var(--muted);font-size:.85rem">Import: first sheet, with a header row containing columns like Date, In, Out (or Start, End). Times can be Excel times or text like 9:00 or 5:30 PM.</p>
@@ -77,8 +78,9 @@ function calc(){
     tr.querySelector(".hrs").textContent=fmt(m);
     total+=m;
   });
-  document.getElementById("tHM").textContent=fmt(total);
-  document.getElementById("tDec").textContent=(total/60).toFixed(2);
+  document.getElementById("tHM").textContent=fmt(total)+" hours";
+  document.getElementById("tDec").textContent=(total/60).toFixed(2)+" hours";
+  document.getElementById("tOT").textContent=fmt(Math.max(0, total - (180 * 60)))+" hours";
 }
 document.getElementById("add").onclick=function(){addRow("");};
 document.getElementById("clear").onclick=function(){rows.innerHTML="";days.forEach(function(x){addRow(x);});calc();};
@@ -110,9 +112,19 @@ function importFile(f){
       rows.innerHTML="";
       var n=0;
       for(var j=hi+1;j<data.length;j++){
-        var d=data[j]||[],st=toTime(d[ci]),en=toTime(d[co]);
-        if(!st&&!en)continue;
-        addRow(cd>=0?toLabel(d[cd]):"Row "+(n+1),st,en);n++;
+        var d=data[j]||[];
+        var stRaw=d[ci]===undefined?"":String(d[ci]),enRaw=d[co]===undefined?"":String(d[co]);
+        var stParts=stRaw.split(/[\r\n|,\/]+/),enParts=enRaw.split(/[\r\n|,\/]+/);
+        var maxLen=Math.max(stParts.length,enParts.length);
+        var label=cd>=0?toLabel(d[cd]):"Row "+(n+1);
+        var added=false;
+        for(var k=0;k<maxLen;k++){
+          var st=toTime(stParts[k]),en=toTime(enParts[k]);
+          if(!st&&!en)continue;
+          addRow(label+(maxLen>1?" ("+(k+1)+")":""),st,en);
+          added=true;
+        }
+        if(added)n++;
       }
       if(!n){alert("No start/end times found. Use columns like Date, In, Out.");days.forEach(function(x){addRow(x);});}
       calc();
