@@ -86,7 +86,7 @@ document.getElementById("clear").onclick=function(){rows.innerHTML="";days.forEa
 function toTime(v){
   if(v===undefined||v===null||v==="")return "";
   if(typeof v==="number"){var m=Math.round((v%1)*1440)%1440;return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");}
-  var x=String(v).match(/(\d{1,2}):(\d{2})\s*(am|pm)?/i);if(!x)return "";
+  var x=String(v).match(/(\d{1,2})[:.](\d{2})\s*(am|pm)?/i);if(!x)return "";
   var h=+x[1];if(x[3]){var pm=x[3].toLowerCase()==="pm";if(pm&&h<12)h+=12;if(!pm&&h===12)h=0;}
   return String(h).padStart(2,"0")+":"+x[2];
 }
